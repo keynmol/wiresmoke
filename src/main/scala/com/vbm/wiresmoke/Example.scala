@@ -12,15 +12,15 @@ import org.http4s.Response
 import cats.syntax.all._
 import org.http4s.client.dsl.Http4sClientDsl
 
-
 object Example extends Http4sClientDsl[IO] with Http4sDsl[IO] {
-  import Wiresmoke._  
+  import Wiresmoke._
 
   def main(args: Array[String]): Unit = {
     implicit val t: Timer[IO]         = IO.timer(global)
     implicit val cs: ContextShift[IO] = IO.contextShift(global)
+    implicit val ps: PortSelector[IO] = RangePortSelector(8080, 8090)
 
-    case class MyService(client: Client[IO])  {
+    case class MyService(client: Client[IO]) {
       def call(num: Int): IO[String] = {
         val uri = Uri.unsafeFromString(s"http://oneid.com/hello/${num}")
 
@@ -50,8 +50,6 @@ object Example extends Http4sClientDsl[IO] with Http4sDsl[IO] {
         c3 <- service.call(3).attempt
 
       } yield {
-        println(c2)
-        println(c1)
         assert(c1 == "hello from the dark side")
         assert(c2 == "hello from the bright side")
       }

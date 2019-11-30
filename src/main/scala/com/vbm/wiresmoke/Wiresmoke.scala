@@ -27,6 +27,8 @@ import org.http4s.Method
 import org.http4s.Request
 import org.http4s.Header
 import org.http4s.util.CaseInsensitiveString
+import org.http4s.server.Server
+import org.http4s.HttpApp
 
 object Wiresmoke {
 
@@ -44,8 +46,9 @@ object Wiresmoke {
     def mocked: F[List[(MockedRequest, MockResponse[F])]]
   }
 
-  case class RefServerMocks[F[_]: Concurrent](ref: Ref[F, List[(MockedRequest, MockResponse[F])]])
-      extends ServerMocks[F] {
+  private case class RefServerMocks[F[_]: Concurrent](
+      ref: Ref[F, List[(MockedRequest, MockResponse[F])]]
+  ) extends ServerMocks[F] {
     override def whenGet[A](uri: Uri, response: F[Response[F]])(
         implicit e: EntityDecoder[F, A]
     ): F[ServerMocks[F]] = {
@@ -70,7 +73,7 @@ object Wiresmoke {
 
   import org.http4s.implicits._
 
-  def serverMockRoutes[F[_]](
+  private def serverMockRoutes[F[_]](
       mocked: List[(MockedRequest, MockResponse[F])]
   )(implicit F: Sync[F]): HttpRoutes[F] = {
     val dsl = new Http4sDsl[F] {}
@@ -115,7 +118,11 @@ object Wiresmoke {
 
   }
 
-  def modifyClient[F[_]: ConcurrentEffect](port: Int, host: String, base: Client[F]): Client[F] = {
+  private def modifyClient[F[_]: ConcurrentEffect](
+      port: Int,
+      host: String,
+      base: Client[F]
+  ): Client[F] = {
     Client.apply { req =>
       val newUri = req.method.name match {
         case "GET" => Uri.unsafeFromString(s"http://$host:$port/get")
@@ -132,9 +139,43 @@ object Wiresmoke {
     }
   }
 
+  trait PortSelector[F[_]] {
+    def select(routes: HttpApp[F]): Resource[F, (Int, Server[F])]
+  }
+
+  case class RangePortSelector[F[_]: ConcurrentEffect: Timer](min: Int, max: Int)
+      extends PortSelector[F] {
+    override def select(routes: HttpApp[F]): Resource[F, (Int, Server[F])] = {
+      def rec(pn: Int): Resource[F, (Int, Server[F])] = {
+        BlazeServerBuilder[F]
+          .bindHttp(pn, "0.0.0.0")
+          .withHttpApp(routes)
+          .resource
+          .map(pn -> _)
+          .handleErrorWith {
+            case ex =>
+              if (pn >= max) {
+                Resource.liftF(
+                  new RuntimeException("exhausted port range, couldn't bind!")
+                    .raiseError[F, (Int, Server[F])]
+                )
+              } else {
+                rec(pn + 1)
+              }
+          }
+      }
+
+      rec(min)
+    }
+  }
+
   def setup[F[_]: ConcurrentEffect](
       mock: ServerMocks[F] => F[ServerMocks[F]]
-  )(implicit T: Timer[F], C: ContextShift[F]): Resource[F, Client[F]] = {
+  )(
+      implicit T: Timer[F],
+      C: ContextShift[F],
+      portSelector: PortSelector[F]
+  ): Resource[F, Client[F]] = {
 
     import org.http4s.syntax._
 
@@ -146,11 +187,9 @@ object Wiresmoke {
 
       httpApp = serverMockRoutes[F](mocked).orNotFound
 
-      server <- BlazeServerBuilder[F]
-        .bindHttp(8080, "0.0.0.0")
-        .withHttpApp(httpApp)
-        .resource
-      newClient = modifyClient(8080, "0.0.0.0", baseClient)
+      (port, server) <- portSelector.select(httpApp)
+
+      newClient = modifyClient(port, "0.0.0.0", baseClient)
     } yield newClient
   }
 }
