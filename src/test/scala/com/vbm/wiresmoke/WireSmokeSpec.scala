@@ -33,7 +33,9 @@ class WiresmokeSpec
   val uri = uri"http://server.com"
 
   def testOk = {
-    withMocks(_.whenGet[String](uri, Ok("hello"))).use { client =>
+    withMocks {
+      _.whenGet[String](uri, Ok("hello"))
+    }.use { client =>
       client
         .expect[String](GET(uri))
         .map(_ must_== "hello")
@@ -41,7 +43,9 @@ class WiresmokeSpec
   }
 
   def testNotFound = {
-    withMocks(_.whenGet[String](uri, NotFound())).use { client =>
+    withMocks {
+      _.whenGet[String](uri, NotFound())
+    }.use { client =>
       client
         .status(GET(uri))
         .map {
@@ -51,9 +55,12 @@ class WiresmokeSpec
   }
 
   def testServerError = {
-    withMocks(_.whenGet[String](uri, InternalServerError())).use { client =>
+    withMocks {
+      _.whenGet[String](uri, InternalServerError())
+    }.use { client =>
       client
-        .status(GET(uri)).map { 
+        .status(GET(uri))
+        .map {
           _.code must_=== 500
         }
     }
@@ -62,7 +69,7 @@ class WiresmokeSpec
   def withMocks(f: ServerMocks[IO] => IO[ServerMocks[IO]]): Resource[IO, Client[IO]] = {
     import Wiresmoke._
 
-    implicit val ps: PortSelector[IO] = RangePortSelector(8080, 8090)
+    implicit val ps: PortSelector[IO] = RangePortSelector(8080, 8082)
 
     setup[IO](f)
   }

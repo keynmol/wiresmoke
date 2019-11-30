@@ -87,7 +87,7 @@ object Wiresmoke {
           case None =>
             F.raiseError(
               new RuntimeException(
-                "This request is trying to leave the grasp of wiremock! (done via non-instrumented client that is)"
+                "This request is trying to leave the grasp of wiresmoke! (done via non-instrumented client that is)"
               )
             )
         }
