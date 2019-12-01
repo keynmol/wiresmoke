@@ -4,7 +4,6 @@ import cats.effect.IO
 import org.http4s._
 import org.http4s.implicits._
 import org.specs2.matcher.MatchResult
-import _root_.com.vbm.wiresmoke.Wiresmoke.ServerMocks
 import cats.effect.Resource
 import org.http4s.client.Client
 import cats.effect.implicits._
@@ -17,58 +16,18 @@ import cats.effect.specs2.CatsIO
 import org.specs2.execute.Result
 import cats.effect.concurrent.Ref
 
-class WiresmokeSpec
+class ExampleSpec
     extends org.specs2.Specification
     with Http4sDsl[IO]
     with Http4sClientDsl[IO]
     with CatsIO {
   override def is = s2"""
-    testOk: $testOk
-    testNotFound: $testNotFound
-    testServerError: $testServerError
-    testStateful: $testState
+    demonstrate stateful mocking    $demonstrate_state
   """
-
-  val MyDesireToWriteTestsForThis = 0
 
   val uri = uri"http://server.com"
 
-  def testOk = {
-    withMocks {
-      _.whenGet[String](uri, Ok("hello"))
-    }.use { client =>
-      client
-        .expect[String](GET(uri))
-        .map(_ must_== "hello")
-    }
-  }
-
-  def testNotFound = {
-    withMocks {
-      _.whenGet[String](uri, NotFound())
-    }.use { client =>
-      client
-        .status(GET(uri))
-        .map {
-          _.code must_=== 404
-        }
-    }
-  }
-
-  def testServerError = {
-    import cats.syntax.apply._
-    withMocks {
-      _.whenGet[String](uri, InternalServerError())
-    }.use { client =>
-      client
-        .status(GET(uri))
-        .map {
-          _.code must_=== 500
-        }
-    }
-  }
-
-  def testState = {
+  def demonstrate_state = {
     import cats.syntax.apply._
     import cats.syntax.traverse._
     import cats.instances.list._
@@ -82,7 +41,7 @@ class WiresmokeSpec
       }
 
       withMocks {
-        _.whenGet[String](uri, stateLogic)
+        _.whenGet(uri, stateLogic)
       }
     }
 
