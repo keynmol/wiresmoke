@@ -2,7 +2,7 @@ package com.vbm.wiresmoke
 
 import cats.effect._
 import cats.effect.concurrent.Ref
-import com.vbm.wiresmoke.models._
+import models._
 import org.http4s.{Header, Method, Uri}
 import org.http4s.client.Client
 import org.http4s.client.blaze._
