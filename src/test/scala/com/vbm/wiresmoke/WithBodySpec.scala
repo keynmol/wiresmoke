@@ -38,7 +38,7 @@ class WithBodySpec
   val test_POST   = testMethod(Method.POST)
   val test_PATCH  = testMethod(Method.PATCH)
   val test_DELETE = testMethod(Method.DELETE)
-  val test_PUT = testMethod(Method.PUT)
+  val test_PUT    = testMethod(Method.PUT)
 
   def testMethod(m: Method) =
     withMocks {
