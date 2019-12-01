@@ -32,18 +32,20 @@ import org.http4s.HttpApp
 
 object Wiresmoke {
 
-  final case class MockedRequest(uri: String, method: String, body: Option[Array[Byte]]) {
+  final case class MockedRequest(uri: Uri, method: Method, body: Option[Array[Byte]]) {
     def matches[F[_]](request: Request[F]): Boolean = {
-      request.uri.toString == uri && method == request.method.name
+      request.uri == uri && method == request.method
     }
   }
+
+  final case class MockResponse[F[_]](resp: F[Response[F]])
 
   trait ServerMocks[F[_]] {
     def whenGet[A](uri: Uri, response: F[Response[F]])(
         implicit e: EntityDecoder[F, A]
     ): F[ServerMocks[F]]
 
-    def mocked: F[List[(MockedRequest, MockResponse[F])]]
+    private[wiresmoke] def mocked: F[List[(MockedRequest, MockResponse[F])]]
   }
 
   private case class RefServerMocks[F[_]: Concurrent](
@@ -52,24 +54,15 @@ object Wiresmoke {
     override def whenGet[A](uri: Uri, response: F[Response[F]])(
         implicit e: EntityDecoder[F, A]
     ): F[ServerMocks[F]] = {
-      val req = MockedRequest(uri.toString(), "GET", None)
+      val req = MockedRequest(uri, Method.GET, None)
 
-      val pair = response.map { resp =>
-        (req, MockResponse(resp))
-      }
+      val pair = (req, MockResponse(response))
 
-      for {
-        newMock <- pair
-        newRef  <- ref.update(_ :+ newMock)
-      } yield this
+      ref.update(_ :+ pair).map(_ => this)
     }
 
     override def mocked: F[List[(MockedRequest, MockResponse[F])]] = ref.get
   }
-
-  case class MockResponse[F[_]](resp: Response[F])
-
-  case class RequestStub(uri: Uri, status: Int, method: String)
 
   import org.http4s.implicits._
 
@@ -95,8 +88,10 @@ object Wiresmoke {
         originalReq = req.withMethod(Method.GET).withUri(Uri.unsafeFromString(originalUri))
 
         matched <- mocked.find(_._1.matches(originalReq)) match {
-          case None                => F.raiseError(new RuntimeException(s"Request $originalReq was not matched"))
-          case Some(foundResponse) => F.pure(foundResponse._2.resp)
+          case None =>
+            F.raiseError(new RuntimeException(s"Request $originalReq was not matched"))
+          case Some(foundResponse) =>
+            foundResponse._2.resp
         }
       } yield matched
     }
@@ -124,8 +119,14 @@ object Wiresmoke {
       base: Client[F]
   ): Client[F] = {
     Client.apply { req =>
-      val newUri = req.method.name match {
-        case "GET" => Uri.unsafeFromString(s"http://$host:$port/get")
+      import Method._
+      val newUri = req.method match {
+        case GET    => Uri.unsafeFromString(s"http://$host:$port/get")
+        case POST   => Uri.unsafeFromString(s"http://$host:$port/post")
+        case PATCH  => Uri.unsafeFromString(s"http://$host:$port/patch")
+        case DELETE => Uri.unsafeFromString(s"http://$host:$port/delete")
+        case m      => Uri.unsafeFromString(s"http://$host:$port/${m.name.toLowerCase()}")
+
       }
 
       val originalUri = req.uri.toString
