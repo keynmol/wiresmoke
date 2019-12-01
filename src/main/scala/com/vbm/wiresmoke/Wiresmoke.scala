@@ -22,6 +22,7 @@ object Wiresmoke {
         case POST   => Uri.unsafeFromString(s"http://$host:$port/post")
         case PATCH  => Uri.unsafeFromString(s"http://$host:$port/patch")
         case DELETE => Uri.unsafeFromString(s"http://$host:$port/delete")
+        case PUT    => Uri.unsafeFromString(s"http://$host:$port/put")
         case m      => Uri.unsafeFromString(s"http://$host:$port/${m.name.toLowerCase()}")
 
       }

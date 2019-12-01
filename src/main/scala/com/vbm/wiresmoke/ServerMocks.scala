@@ -10,6 +10,8 @@ trait ServerMocks[F[_]] {
   def whenPost(uri: Uri, response: F[Response[F]]): F[ServerMocks[F]]
   def whenPatch(uri: Uri, response: F[Response[F]]): F[ServerMocks[F]]
   def whenDelete(uri: Uri, response: F[Response[F]]): F[ServerMocks[F]]
+  def whenPut(uri: Uri, response: F[Response[F]]): F[ServerMocks[F]]
+
 
   def when(method: Method, uri: Uri, response: F[Response[F]]): F[ServerMocks[F]]
 
@@ -33,6 +35,11 @@ trait ServerMocks[F[_]] {
       implicit e: EntityEncoder[F, A]
   ): F[ServerMocks[F]]
 
+  def whenPut[A](uri: Uri, body: A, response: F[Response[F]])(
+    implicit e: EntityEncoder[F, A]
+): F[ServerMocks[F]]
+
+
   private[wiresmoke] def mocked: F[List[(MockedRequest[F], MockResponse[F])]]
 }
 
@@ -51,6 +58,10 @@ private[wiresmoke] case class RefServerMocks[F[_]: Concurrent](
 
   override def whenDelete(uri: Uri, response: F[Response[F]]): F[ServerMocks[F]] =
     stubRequest[Unit](uri, Method.DELETE, None, response)
+  
+    override def whenPut(uri: Uri, response: F[Response[F]]): F[ServerMocks[F]] =
+    stubRequest[Unit](uri, Method.PUT, None, response)
+
 
   def whenGet[A](uri: Uri, body: A, response: F[Response[F]])(
       implicit e: EntityEncoder[F, A]
@@ -71,6 +82,12 @@ private[wiresmoke] case class RefServerMocks[F[_]: Concurrent](
       implicit e: EntityEncoder[F, A]
   ): F[ServerMocks[F]] =
     stubRequest[A](uri, Method.DELETE, Some(body), response)
+
+  
+  def whenPut[A](uri: Uri, body: A, response: F[Response[F]])(
+      implicit e: EntityEncoder[F, A]
+  ): F[ServerMocks[F]] =
+    stubRequest[A](uri, Method.PUT, Some(body), response)
 
   def when(method: Method, uri: Uri, response: F[Response[F]]) =
     stubRequest[Unit](uri, method, None, response)

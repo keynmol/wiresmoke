@@ -27,6 +27,7 @@ class WithBodySpec
     $test_POST
     $test_PATCH
     $test_DELETE
+    $test_PUT
   """
 
   val MyDesireToWriteTestsForThis = 0
@@ -37,6 +38,7 @@ class WithBodySpec
   val test_POST   = testMethod(Method.POST)
   val test_PATCH  = testMethod(Method.PATCH)
   val test_DELETE = testMethod(Method.DELETE)
+  val test_PUT = testMethod(Method.PUT)
 
   def testMethod(m: Method) =
     withMocks {

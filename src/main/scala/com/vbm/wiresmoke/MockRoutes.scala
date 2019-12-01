@@ -67,7 +67,9 @@ object MockRoutes {
 
         case req @ POST -> Root / "delete" =>
           matchRequest(req, Method.DELETE)
-
+        
+        case req @ POST -> Root / "put" =>
+          matchRequest(req, Method.PUT)
       }
       .orNotFound
 
